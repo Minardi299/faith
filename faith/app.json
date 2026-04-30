@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.faith.app"
+      "bundleIdentifier": "com.minh.faith"
     },
     "android": {
       "adaptiveIcon": {
