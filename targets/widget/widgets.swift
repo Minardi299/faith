@@ -1,49 +1,92 @@
 import WidgetKit
 import SwiftUI
 
-struct Provider: AppIntentTimelineProvider {
-    func placeholder(in context: Context) -> SimpleEntry {
-        SimpleEntry(date: Date(), configuration: ConfigurationAppIntent())
-    }
-
-    func snapshot(for configuration: ConfigurationAppIntent, in context: Context) async -> SimpleEntry {
-        SimpleEntry(date: Date(), configuration: configuration)
-    }
-    
-    func timeline(for configuration: ConfigurationAppIntent, in context: Context) async -> Timeline<SimpleEntry> {
-        var entries: [SimpleEntry] = []
-
-        // Generate a timeline consisting of five entries an hour apart, starting from the current date.
-        let currentDate = Date()
-        for hourOffset in 0 ..< 5 {
-            let entryDate = Calendar.current.date(byAdding: .hour, value: hourOffset, to: currentDate)!
-            let entry = SimpleEntry(date: entryDate, configuration: configuration)
-            entries.append(entry)
-        }
-
-        return Timeline(entries: entries, policy: .atEnd)
-    }
-
-//    func relevances() async -> WidgetRelevances<ConfigurationAppIntent> {
-//        // Generate a list containing the contexts this widget is relevant in.
-//    }
+struct Verse: Decodable {
+    let number: Int
+    let chapter: Int
+    let chapterPali: String
+    let chapterTitle: String
+    let storyTitle: String
+    let storyPaliName: String
+    let story: String
+    let text: String
 }
 
-struct SimpleEntry: TimelineEntry {
+enum VerseLoader {
+    static let all: [Verse] = {
+        guard
+            let url = Bundle.main.url(forResource: "dhammapada", withExtension: "json"),
+            let data = try? Data(contentsOf: url),
+            let verses = try? JSONDecoder().decode([Verse].self, from: data),
+            !verses.isEmpty
+        else { return [] }
+        return verses
+    }()
+
+    static func verse(for date: Date) -> Verse? {
+        guard !all.isEmpty else { return nil }
+        let day = Int(date.timeIntervalSince1970 / 86_400)
+        return all[((day % all.count) + all.count) % all.count]
+    }
+}
+
+struct Provider: AppIntentTimelineProvider {
+    func placeholder(in context: Context) -> VerseEntry {
+        VerseEntry(date: Date(), configuration: ConfigurationAppIntent(), verse: VerseLoader.verse(for: Date()))
+    }
+
+    func snapshot(for configuration: ConfigurationAppIntent, in context: Context) async -> VerseEntry {
+        VerseEntry(date: Date(), configuration: configuration, verse: VerseLoader.verse(for: Date()))
+    }
+
+    func timeline(for configuration: ConfigurationAppIntent, in context: Context) async -> Timeline<VerseEntry> {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: today) ?? today.addingTimeInterval(86_400)
+
+        let entry = VerseEntry(
+            date: today,
+            configuration: configuration,
+            verse: VerseLoader.verse(for: today)
+        )
+        return Timeline(entries: [entry], policy: .after(tomorrow))
+    }
+}
+
+struct VerseEntry: TimelineEntry {
     let date: Date
     let configuration: ConfigurationAppIntent
+    let verse: Verse?
 }
 
-struct widgetEntryView : View {
+struct widgetEntryView: View {
+    @Environment(\.widgetFamily) private var family
     var entry: Provider.Entry
 
     var body: some View {
-        VStack {
-            Text("Time:")
-            Text(entry.date, style: .time)
-
-            Text("Favorite Emoji:")
-            Text(entry.configuration.favoriteEmoji)
+        if let verse = entry.verse {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text("Verse \(verse.number)")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text(verse.chapterTitle)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                Text(verse.text)
+                    .font(family == .systemSmall ? .caption : .footnote)
+                    .lineLimit(family == .systemSmall ? 6 : 12)
+                    .minimumScaleFactor(0.7)
+                    .multilineTextAlignment(.leading)
+                Spacer(minLength: 0)
+            }
+        } else {
+            Text("No verse available")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
         }
     }
 }
@@ -56,26 +99,14 @@ struct widget: Widget {
             widgetEntryView(entry: entry)
                 .containerBackground(.fill.tertiary, for: .widget)
         }
+        .configurationDisplayName("Dhammapada")
+        .description("A daily verse from the Dhammapada.")
+        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }
 
-extension ConfigurationAppIntent {
-    fileprivate static var smiley: ConfigurationAppIntent {
-        let intent = ConfigurationAppIntent()
-        intent.favoriteEmoji = "😀"
-        return intent
-    }
-    
-    fileprivate static var starEyes: ConfigurationAppIntent {
-        let intent = ConfigurationAppIntent()
-        intent.favoriteEmoji = "🤩"
-        return intent
-    }
-}
-
-#Preview(as: .systemSmall) {
+#Preview(as: .systemMedium) {
     widget()
 } timeline: {
-    SimpleEntry(date: .now, configuration: .smiley)
-    SimpleEntry(date: .now, configuration: .starEyes)
+    VerseEntry(date: .now, configuration: ConfigurationAppIntent(), verse: VerseLoader.verse(for: .now))
 }
