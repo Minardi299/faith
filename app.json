@@ -9,7 +9,14 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "appleTeamid": "L295GMRYLF",
+      "bundleIdentifier": "dev.starb.faith",
+      "entitlements": {
+        "com.apple.security.application-groups": [
+          "group.starb.faith"
+        ]
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -38,7 +45,8 @@
             "backgroundColor": "#000000"
           }
         }
-      ]
+      ],
+      "@bacons/apple-targets"
     ],
     "experiments": {
       "typedRoutes": true,
