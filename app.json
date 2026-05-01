@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "appleTeamid": "L295GMRYLF",
+      "appleTeamId": "L295GMRYLF",
       "bundleIdentifier": "dev.starb.faith",
       "entitlements": {
         "com.apple.security.application-groups": [
